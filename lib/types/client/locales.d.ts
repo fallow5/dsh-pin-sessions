@@ -20,6 +20,10 @@ export declare const zh: {
     readonly "archive.select_all": "全选";
     readonly "archive.delete_selected": "删除选中";
     readonly "archive.confirm": "确定要删除选中的会话吗？此操作不可恢复。";
+    readonly "archive.confirm_title": "确认删除";
+    readonly "archive.cancel": "取消";
+    readonly "archive.confirm_delete": "删除";
+    readonly "archive.close": "关闭";
     readonly "archive.empty": "暂无会话";
     readonly "archive.deleted": "已删除 {count} 个会话";
     readonly "archive.errors": "{count} 个会话删除失败";

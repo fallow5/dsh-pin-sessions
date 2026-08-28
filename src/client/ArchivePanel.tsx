@@ -13,6 +13,7 @@
 import type { SessionId, SessionListState, SessionSummary } from "@deepseek-ai/dsh-client-runtime/client";
 import type { WorkspaceListState } from "@deepseek-ai/dsh-client-runtime/client";
 import type { SnapshotSelectorHook, TranslateNS } from "@deepseek-ai/dsh-client-ui-slots";
+import { Button, Modal } from "@deepseek-ai/dsh-client-ui-primitives";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DeleteResult } from "../types.js";
 import type { PinsRemote } from "./remote.js";
@@ -70,6 +71,7 @@ export function ArchiveSection(props: ArchiveSectionProps) {
 	const [page, setPage] = useState(0);
 	const [message, setMessage] = useState<string | null>(null);
 	const [deleting, setDeleting] = useState(false);
+	const [showConfirm, setShowConfirm] = useState(false);
 
 	const now = Date.now();
 
@@ -165,11 +167,14 @@ export function ArchiveSection(props: ArchiveSectionProps) {
 		}
 	}, [allOnPageSelected, pageIds]);
 
-	const handleDelete = useCallback(async () => {
+	const handleDeleteClick = useCallback(() => {
+		if (selected.size === 0) return;
+		setShowConfirm(true);
+	}, [selected.size]);
+
+	const confirmDelete = useCallback(async () => {
 		const ids = [...selected];
 		if (ids.length === 0) return;
-		const confirmed = window.confirm(t("archive.confirm"));
-		if (!confirmed) return;
 
 		setDeleting(true);
 		setMessage(null);
@@ -190,6 +195,7 @@ export function ArchiveSection(props: ArchiveSectionProps) {
 			setMessage(e instanceof Error ? e.message : String(e));
 		} finally {
 			setDeleting(false);
+			setShowConfirm(false);
 		}
 	}, [selected, pins, t, refreshArchived]);
 
@@ -223,7 +229,7 @@ export function ArchiveSection(props: ArchiveSectionProps) {
 				<button
 					type="button"
 					className={`${C.archiveDeleteBtn} ${C.archiveDeleteBtnDanger}`}
-					onClick={handleDelete}
+					onClick={handleDeleteClick}
 					disabled={selected.size === 0 || deleting}
 				>
 					{t("archive.delete_selected")} ({selected.size})
@@ -308,6 +314,36 @@ export function ArchiveSection(props: ArchiveSectionProps) {
 				})}
 			</div>
 			)}
+			<Modal
+				open={showConfirm}
+				onClose={() => {
+					if (!deleting) setShowConfirm(false);
+				}}
+				title={t("archive.confirm_title")}
+				closeLabel={t("archive.close")}
+				description={t("archive.confirm")}
+				className={C.archiveDeleteDialog}
+				footer={
+					<>
+						<Button
+							variant="outline"
+							autoFocus
+							disabled={deleting}
+							onClick={() => setShowConfirm(false)}
+						>
+							{t("archive.cancel")}
+						</Button>
+						<Button
+							variant="outline"
+							className={C.archiveDeleteConfirm}
+							disabled={deleting}
+							onClick={() => void confirmDelete()}
+						>
+							{t("archive.confirm_delete")}
+						</Button>
+					</>
+				}
+			/>
 		</div>
 	);
 }

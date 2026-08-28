@@ -52,6 +52,8 @@ export const C = {
 	archivePageBtn: "dshps-archive-page-btn",
 	archivePageInfo: "dshps-archive-page-info",
 	archiveRestoreBtn: "dshps-archive-restore-btn",
+	archiveDeleteDialog: "dshps-archive-delete-dialog",
+	archiveDeleteConfirm: "dshps-archive-delete-confirm",
 } as const;
 
 const css = `
@@ -112,6 +114,11 @@ const css = `
 .dshps-archive-page-info{color:var(--dsw-alias-label-tertiary);font-size:12px;white-space:nowrap}
 .dshps-archive-restore-btn{cursor:pointer;width:24px;height:24px;border:none;border-radius:4px;background:0 0;color:var(--dsw-alias-label-tertiary);font-size:14px;display:inline-flex;align-items:center;justify-content:center;flex:none}
 .dshps-archive-restore-btn:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}
+
+/* ── Delete confirmation dialog ──────────────────────────────────────── */
+.dshps-archive-delete-dialog{width:min(480px,100%)}
+.dshps-archive-delete-confirm{color:var(--dsw-alias-state-error-primary)}
+.dshps-archive-delete-confirm:hover:not(:disabled){background:var(--dsw-alias-state-danger-bg)}
 `;
 
 /** Inject the stylesheet once. */

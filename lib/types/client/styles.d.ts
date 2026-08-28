@@ -49,6 +49,8 @@ export declare const C: {
     readonly archivePageBtn: "dshps-archive-page-btn";
     readonly archivePageInfo: "dshps-archive-page-info";
     readonly archiveRestoreBtn: "dshps-archive-restore-btn";
+    readonly archiveDeleteDialog: "dshps-archive-delete-dialog";
+    readonly archiveDeleteConfirm: "dshps-archive-delete-confirm";
 };
 /** Inject the stylesheet once. */
 export declare function injectStyles(): void;

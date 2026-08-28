@@ -1,8 +1,8 @@
 # Dependencies
 node_modules/
 
-# Build output
-lib/
+# Build output (lib/ is committed for direct install without build)
+# lib/
 
 # TypeScript incremental build cache
 *.tsbuildinfo

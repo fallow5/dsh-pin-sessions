@@ -1,0 +1,6 @@
+# The @opendsh/dsh-plugin-pin-sessions bundle patch: mounts the plugin's
+# server half as one Cordis loader row. Apply after dsh-base + dsh-web-app.
+
+- insert:
+    - id: pin-sessions
+      name: '@opendsh/dsh-plugin-pin-sessions'

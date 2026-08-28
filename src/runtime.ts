@@ -28,28 +28,28 @@ interface WorkspaceRegistryLike {
 
 /** Minimal session-store face for live-session checks and detach. */
 interface SessionsLike {
-	get?: (id: string) => unknown;
-	store?: { get?: (id: string) => unknown; delete?: (id: string) => void };
-	detachEntered?: (entry: unknown) => void;
-	flush?: (session: unknown) => Promise<void>;
+	get(id: string): unknown;
+	store: { get(id: string): unknown; delete(id: string): void };
+	detachEntered(entry: unknown): void;
+	flush(session: unknown): Promise<void>;
 }
 
 /** Minimal agent face for stopping a running agent before deletion. */
 interface AgentLike {
-	cancel?: (cause: { kind: string }, options?: { keepInbox?: boolean }) => void;
-	whenIdle?: () => Promise<void>;
+	cancel?(cause: { kind: string }, options?: { keepInbox?: boolean }): void;
+	whenIdle?(): Promise<void>;
 }
 
 /** Minimal agents-service face. */
 interface AgentsLike {
-	get?: (id: string) => AgentLike | undefined;
+	get(id: string): AgentLike | undefined;
 }
 
 /** Minimal storage-domain face for projection-cache cleanup. */
 interface StorageDomainLike {
-	get?: (name: string) => {
-		table?: (name: string) => { get?: (id: string) => unknown; delete?: (id: string) => Promise<void> } | undefined;
-		global?: { get?: () => unknown; set?: (state: unknown) => Promise<void> };
+	get(name: string): {
+		table(name: string): { get(id: string): unknown; delete(id: string): Promise<void> } | undefined;
+		global?: { get?(): unknown; set?(state: unknown): Promise<void> };
 	} | undefined;
 }
 
@@ -189,13 +189,19 @@ export class PinsRuntime extends TypertRemoteService {
 			}
 
 			// Resolve the on-disk log path via the backend's locate method.
-			const locate = persistence.locate;
-			if (typeof locate !== "function") {
-				errors.push({ id, error: "persistence backend does not support locate" });
+			// Call persistence.locate(header) directly — extracting the method
+			// into a variable would lose `this` context and throw TypeError.
+			let location: { path: string; kind?: string } | undefined;
+			try {
+				if (typeof persistence.locate !== "function") {
+					errors.push({ id, error: "persistence backend does not support locate" });
+					continue;
+				}
+				location = persistence.locate(header);
+			} catch (e) {
+				errors.push({ id, error: e instanceof Error ? e.message : String(e) });
 				continue;
 			}
-
-			const location = locate(header);
 			if (location === undefined || location.path === undefined) {
 				errors.push({ id, error: "could not resolve session path" });
 				continue;
@@ -203,7 +209,9 @@ export class PinsRuntime extends TypertRemoteService {
 
 			try {
 				// 1. Stop the running agent if any (cancel + wait for idle).
-				const agent = agents?.get?.(id);
+				// Use agents?.get(id) not agents?.get?.(id) — the latter loses
+				// `this` context via optional-call syntax and throws TypeError.
+				const agent = agents?.get(id);
 				if (agent !== undefined) {
 					if (typeof agent.cancel === "function") {
 						try { agent.cancel({ kind: "user" }, { keepInbox: true }); } catch { /* best-effort */ }
@@ -222,14 +230,15 @@ export class PinsRuntime extends TypertRemoteService {
 				}
 
 				// 2. Detach the live session from the session store.
-				if (sessions?.get?.(id) !== undefined) {
+				const liveSession = sessions?.get(id);
+				if (liveSession !== undefined && sessions !== undefined) {
 					if (typeof sessions.flush === "function") {
-						try { await sessions.flush(sessions.get!(id)); } catch { /* best-effort */ }
+						try { await sessions.flush(liveSession); } catch { /* best-effort */ }
 					}
-					const entry = sessions.store?.get?.(id);
+					const entry = sessions.store.get(id);
 					if (entry !== undefined) {
 						if (typeof sessions.detachEntered === "function") sessions.detachEntered(entry);
-						else sessions.store?.delete?.(id);
+						else sessions.store.delete(id);
 					}
 				}
 
@@ -239,10 +248,10 @@ export class PinsRuntime extends TypertRemoteService {
 
 				// 4. Remove projection cache (best-effort).
 				try {
-					const projDomain = storageDomain?.get?.("session_projcache");
-					const projTable = projDomain?.table?.("sessions");
-					if (projTable?.get?.(id) !== undefined) {
-						await projTable.delete?.(id);
+					const projDomain = storageDomain?.get("session_projcache");
+					const projTable = projDomain?.table("sessions");
+					if (projTable?.get(id) !== undefined) {
+						await projTable.delete(id);
 					}
 				} catch { /* best-effort */ }
 

@@ -159,8 +159,9 @@ function PinnedSectionContent({
 				aria-expanded={!collapsed}
 			>
 				<span className={C.sectionIcon}>
-					<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-						<path d="M9.828 0.172a.586.586 0 0 0-.828 0L8 1.172l.828.828L6.5 4.328 4.172 2a.586.586 0 0 0-.828 0L2 3.344a.586.586 0 0 0 0 .828L4.328 6.5 2.5 8.328a.586.586 0 0 0 0 .828l.672.672a.586.586 0 0 0 .828 0L5.828 8 9 11.172l-1 1a.586.586 0 0 0 0 .828l.672.672a.586.586 0 0 0 .828 0l4.5-4.5a.586.586 0 0 0 0-.828l-.672-.672a.586.586 0 0 0-.828 0l-1 1L9 5.828 11.328 3.5 12 4.172a.586.586 0 0 0 .828 0L14 2a.586.586 0 0 0 0-.828L9.828.172z"/>
+					<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+						<path fill-rule="evenodd" clip-rule="evenodd" d="M8.5 1.5C7.4 1.5 6.5 2.4 6.5 3.5V5L4 7.5C3.6 7.9 3.6 8.5 4 8.9L5.1 10L3.2 11.9C2.9 12.2 2.9 12.7 3.2 13C3.5 13.3 4 13.3 4.3 13L6.2 11.1L7.3 12.2C7.7 12.6 8.3 12.6 8.7 12.2L11.2 9.7C11.6 9.3 11.6 8.7 11.2 8.3L9.5 6.6V3.5C9.5 2.4 9.1 1.5 8.5 1.5Z" fill="currentColor"/>
+						<path d="M8 12.5V15" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
 					</svg>
 				</span>
 				<span className={C.sectionTitle}>{t("title")}</span>
@@ -188,11 +189,6 @@ function PinnedSectionContent({
 						role="treeitem"
 						aria-selected={s.isCurrent}
 						onClick={() => onOpen(s.id)}
-						onContextMenu={(e) => {
-							// Allow the @baihejiangnan/dsh-session-context-menu plugin
-							// to intercept the right-click on this treeitem row.
-							// The event bubbles naturally; we just don't prevent it.
-						}}
 						onKeyDown={(e) => {
 							if (e.key === "Enter" || e.key === " ") {
 								e.preventDefault();

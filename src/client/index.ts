@@ -10,7 +10,7 @@
  */
 // Load the locale service declarations (module augmentation for Context.locale).
 import type {} from "@deepseek-ai/dsh-client-locale/client";
-import type { SessionId } from "@deepseek-ai/dsh-client-runtime/client";
+import type { SessionId, SessionListState } from "@deepseek-ai/dsh-client-runtime/client";
 import type { ClientContext } from "@deepseek-ai/dsh-client-runtime/client";
 // Load the sidebar slot declarations (module augmentation for the SlotMap).
 import type {} from "@deepseek-ai/dsh-client-ui-sidebar/client";
@@ -206,6 +206,57 @@ export async function apply(ctx: ClientContext) {
 			document.removeEventListener("pointerdown", onPointerDown, true);
 		};
 	}, "pin-sessions: session menu injection");
+
+	// 1b. Auto-pin new sessions — when a new blank session appears in the
+	//     list (a fresh conversation, not a fork or subagent), pin it
+	//     automatically so it stays at the top of the sidebar.
+	ctx.effect(() => {
+		let disposed = false;
+		let seeded = false;
+		const knownIds = new Set<string>();
+
+		/** Check the sessions list for new IDs to auto-pin. */
+		const check = (): void => {
+			if (disposed) return;
+			const snap = ctx.sessions.list.getSnapshot();
+
+			// Wait for the first "ready" snapshot before seeding — otherwise
+			// every pre-existing session would look "new" and get auto-pinned.
+			if (!seeded) {
+				if (snap.phase !== "ready") return;
+				for (const id of snap.ids) knownIds.add(id);
+				seeded = true;
+				return;
+			}
+
+			// After seeding, detect genuinely new sessions.
+			for (const id of snap.ids) {
+				if (knownIds.has(id)) continue;
+				knownIds.add(id);
+
+				// Only auto-pin blank sessions (new conversations, not forks
+				// which carry parent history, and not subagent sessions).
+				const entry = snap.byId[id as SessionId];
+				if (entry?.blank && !entry.parentId && entry.origin !== "subagent") {
+					void pins.pin(id).then(() => {
+						void refreshPinnedIds();
+						globalThis.dispatchEvent(
+							new CustomEvent("pin-sessions:changed"),
+						);
+					});
+				}
+			}
+		};
+
+		// Check immediately in case the list is already ready.
+		check();
+		const unsubscribe = ctx.sessions.list.subscribe(check);
+
+		return () => {
+			disposed = true;
+			unsubscribe();
+		};
+	}, "pin-sessions: auto-pin new sessions");
 
 	// 2. Portal the pinned-sessions section to the top of the sidebar.
 	// A hidden sentinel component registered into sidebar.footer.action

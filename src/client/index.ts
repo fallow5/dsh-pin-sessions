@@ -207,48 +207,36 @@ export async function apply(ctx: ClientContext) {
 		};
 	}, "pin-sessions: session menu injection");
 
-	// 1b. Auto-pin new sessions — when a new blank session appears in the
-	//     list (a fresh conversation, not a fork or subagent), pin it
-	//     automatically so it stays at the top of the sidebar.
+	// 1b. Auto-pin the current session — whenever the user opens or switches
+	//     to a session (new or old), pin it automatically so active
+	//     conversations stay at the top of the sidebar. Subagent child
+	//     sessions are excluded (they nest under their parent).
 	ctx.effect(() => {
 		let disposed = false;
-		let seeded = false;
-		const knownIds = new Set<string>();
+		let lastCurrent: string | undefined;
 
-		/** Check the sessions list for new IDs to auto-pin. */
 		const check = (): void => {
 			if (disposed) return;
 			const snap = ctx.sessions.list.getSnapshot();
+			const current = snap.current;
+			if (current === undefined || current === lastCurrent) return;
 
-			// Wait for the first "ready" snapshot before seeding — otherwise
-			// every pre-existing session would look "new" and get auto-pinned.
-			if (!seeded) {
-				if (snap.phase !== "ready") return;
-				for (const id of snap.ids) knownIds.add(id);
-				seeded = true;
-				return;
-			}
+			lastCurrent = current;
 
-			// After seeding, detect genuinely new sessions.
-			for (const id of snap.ids) {
-				if (knownIds.has(id)) continue;
-				knownIds.add(id);
+			// Don't auto-pin subagent child sessions — they belong to a parent.
+			const entry = snap.byId[current as SessionId];
+			if (entry?.origin === "subagent") return;
 
-				// Only auto-pin blank sessions (new conversations, not forks
-				// which carry parent history, and not subagent sessions).
-				const entry = snap.byId[id as SessionId];
-				if (entry?.blank && !entry.parentId && entry.origin !== "subagent") {
-					void pins.pin(id).then(() => {
-						void refreshPinnedIds();
-						globalThis.dispatchEvent(
-							new CustomEvent("pin-sessions:changed"),
-						);
-					});
-				}
-			}
+			// Pin the current session (fire-and-forget; refreshPinnedIds + UI
+			// event keep the panel in sync).
+			void pins.pin(current).then(() => {
+				void refreshPinnedIds();
+				globalThis.dispatchEvent(
+					new CustomEvent("pin-sessions:changed"),
+				);
+			});
 		};
 
-		// Check immediately in case the list is already ready.
 		check();
 		const unsubscribe = ctx.sessions.list.subscribe(check);
 
@@ -256,7 +244,7 @@ export async function apply(ctx: ClientContext) {
 			disposed = true;
 			unsubscribe();
 		};
-	}, "pin-sessions: auto-pin new sessions");
+	}, "pin-sessions: auto-pin current session");
 
 	// 2. Portal the pinned-sessions section to the top of the sidebar.
 	// A hidden sentinel component registered into sidebar.footer.action

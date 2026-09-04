@@ -207,34 +207,54 @@ export async function apply(ctx: ClientContext) {
 		};
 	}, "pin-sessions: session menu injection");
 
-	// 1b. Auto-pin the current session — whenever the user opens or switches
-	//     to a session (new or old), pin it automatically so active
-	//     conversations stay at the top of the sidebar. Subagent child
-	//     sessions are excluded (they nest under their parent).
+	// 1b. Auto-pin the current session when it becomes active — only when the
+	//     user actually continues a conversation (sends a message), not when
+	//     they merely click to peek. The signal is `updatedAt` changing on the
+	//     current session: it bumps every time new activity lands (a prompt,
+	//     a running frame, etc.). Subagent child sessions are excluded.
 	ctx.effect(() => {
 		let disposed = false;
-		let lastCurrent: string | undefined;
+		/** The session currently being tracked, and its last-seen updatedAt. */
+		let trackedId: string | undefined;
+		let trackedUpdatedAt: number | undefined;
 
 		const check = (): void => {
 			if (disposed) return;
 			const snap = ctx.sessions.list.getSnapshot();
 			const current = snap.current;
-			if (current === undefined || current === lastCurrent) return;
 
-			lastCurrent = current;
+			// No current session — reset tracking.
+			if (current === undefined) {
+				trackedId = undefined;
+				trackedUpdatedAt = undefined;
+				return;
+			}
 
-			// Don't auto-pin subagent child sessions — they belong to a parent.
+			// Don't auto-pin subagent child sessions — they nest under a parent.
 			const entry = snap.byId[current as SessionId];
-			if (entry?.origin === "subagent") return;
+			if (entry?.origin === "subagent") {
+				trackedId = undefined;
+				trackedUpdatedAt = undefined;
+				return;
+			}
 
-			// Pin the current session (fire-and-forget; refreshPinnedIds + UI
-			// event keep the panel in sync).
-			void pins.pin(current).then(() => {
-				void refreshPinnedIds();
-				globalThis.dispatchEvent(
-					new CustomEvent("pin-sessions:changed"),
-				);
-			});
+			// Session switched — start tracking its updatedAt without pinning.
+			if (current !== trackedId) {
+				trackedId = current;
+				trackedUpdatedAt = entry?.updatedAt;
+				return;
+			}
+
+			// Same session — pin only when updatedAt bumped (real activity).
+			if (entry && entry.updatedAt !== trackedUpdatedAt) {
+				trackedUpdatedAt = entry.updatedAt;
+				void pins.pin(current).then(() => {
+					void refreshPinnedIds();
+					globalThis.dispatchEvent(
+						new CustomEvent("pin-sessions:changed"),
+					);
+				});
+			}
 		};
 
 		check();
@@ -244,7 +264,7 @@ export async function apply(ctx: ClientContext) {
 			disposed = true;
 			unsubscribe();
 		};
-	}, "pin-sessions: auto-pin current session");
+	}, "pin-sessions: auto-pin active session");
 
 	// 2. Portal the pinned-sessions section to the top of the sidebar.
 	// A hidden sentinel component registered into sidebar.footer.action
